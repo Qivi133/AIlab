@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 助手</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="chat-container">
+            <!-- 顶部 -->
+            <header class="top-bar">
+                <div class="logo">
+                    <div class="logo-avatar">
+                        <img src="{{ url_for('static', filename='avatar.jpg') }}" alt="AI">
+                    </div>
+                    <span class="logo-text">AI 助手</span>
+                </div>
+                <div class="top-actions">
+                    <select id="modelSelect" class="select-box">
+                        <option value="qwen3:0.6b" selected>qwen3:0.6b</option>
+                        <option value="qwen3:8b">qwen3:8b</option>
+                        <option value="llama3:8b">llama3:8b</option>
+                        <option value="deepseek-r1:7b">deepseek-r1:7b</option>
+                    </select>
+                    <select id="personaSelect" class="select-box">
+                        <option value="default" selected>默认</option>
+                        <option value="teacher">老师</option>
+                        <option value="friend">朋友</option>
+                        <option value="expert">专家</option>
+                    </select>
+                    <button id="voiceBtn" class="icon-btn" title="语音输入">🎤</button>
+                    <button id="speakBtn" class="icon-btn" title="语音播报">🔊</button>
+                    <button id="clearBtn" class="icon-btn" title="清空">🗑️</button>
+                    <button id="exportBtn" class="icon-btn" title="导出">💾</button>
+                </div>
+            </header>
+            
+            <!-- 消息区 -->
+            <main class="messages-area" id="messages">
+                <div class="message bot">
+                    <div class="msg-avatar">
+                        <img src="{{ url_for('static', filename='avatar.jpg') }}" alt="AI">
+                    </div>
+                    <div class="msg-content">
+                        你好！我是 AI 助手 👋
+                        <br>有什么可以帮你的吗？
+                    </div>
+                </div>
+            </main>
+            
+            <!-- 输入区 -->
+            <footer class="input-bar">
+                <div class="input-box">
+                    <textarea id="userInput" placeholder="输入消息..." rows="1"></textarea>
+                    <button id="sendBtn" class="send-btn">发送</button>
+                </div>
+            </footer>
+            
+            <!-- 加载 -->
+            <div class="loading-bar" id="loadingArea" style="display: none;">
+                正在思考...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const userInput = document.getElementById("userInput");
+        const messagesContainer = document.getElementById("messages");
+        const loadingArea = document.getElementById("loadingArea");
+        const sendBtn = document.getElementById("sendBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const exportBtn = document.getElementById("exportBtn");
+        const voiceBtn = document.getElementById("voiceBtn");
+        const speakBtn = document.getElementById("speakBtn");
+        const personaSelect = document.getElementById("personaSelect");
+        const modelSelect = document.getElementById("modelSelect");
+        
+        let conversationHistory = [];
+        let isRecording = false;
+        let isSpeaking = false;
+        let recognition = null;
+        let speechSynthesis = window.speechSynthesis;
+
+        // 发送消息
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, "user");
+            userInput.value = "";
+            userInput.style.height = "auto";
+            
+            conversationHistory.push({ role: "user", content: message });
+            sendBtn.disabled = true;
+            loadingArea.style.display = "block";
+
+            try {
+                const response = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message: message,
+                        model: modelSelect.value,
+                        persona: personaSelect.value,
+                        history: conversationHistory
+                    })
+                });
+
+                const data = await response.json();
+                loadingArea.style.display = "none";
+                
+                if (data.error) {
+                    addMessage(data.error, "bot");
+                } else {
+                    addMessage(data.response, "bot");
+                    conversationHistory.push({ role: "assistant", content: data.response });
+                    
+                    // 语音播报
+                    if (isSpeaking) {
+                        speakText(data.response);
+                    }
+                }
+            } catch (error) {
+                loadingArea.style.display = "none";
+                addMessage("网络错误: " + error.message, "bot");
+            }
+
+            sendBtn.disabled = false;
+        }
+
+        // 添加消息
+        function addMessage(content, sender) {
+            const div = document.createElement("div");
+            div.className = `message ${sender}`;
+            div.innerHTML = `
+                <div class="msg-avatar">
+                    ${sender === "user" ? "👤" : '<img src="{{ url_for("static", filename="avatar.jpg") }}" alt="AI">'}
+                </div>
+                <div class="msg-content">${content.replace(/\n/g, "<br>")}</div>
+            `;
+            messagesContainer.appendChild(div);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 语音识别
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("您的浏览器不支持语音识别功能");
+                return null;
+            }
+            
+            const rec = new SpeechRecognition();
+            rec.lang = "zh-CN";
+            rec.continuous = false;
+            rec.interimResults = false;
+            
+            rec.onstart = () => {
+                isRecording = true;
+                voiceBtn.classList.add("recording");
+                voiceBtn.textContent = "⏹️";
+            };
+            
+            rec.onend = () => {
+                isRecording = false;
+                voiceBtn.classList.remove("recording");
+                voiceBtn.textContent = "🎤";
+            };
+            
+            rec.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                sendMessage();
+            };
+            
+            rec.onerror = (event) => {
+                console.error("语音识别错误:", event.error);
+                isRecording = false;
+                voiceBtn.classList.remove("recording");
+                voiceBtn.textContent = "🎤";
+            };
+            
+            return rec;
+        }
+
+        // 语音输入
+        voiceBtn.addEventListener("click", () => {
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+            }
+            
+            if (recognition) {
+                if (isRecording) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            }
+        });
+
+        // 语音播报
+        function speakText(text) {
+            speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "zh-CN";
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            utterance.onstart = () => {
+                isSpeaking = true;
+                speakBtn.classList.add("speaking");
+            };
+            
+            utterance.onend = () => {
+                isSpeaking = false;
+                speakBtn.classList.remove("speaking");
+            };
+            
+            speechSynthesis.speak(utterance);
+        }
+
+        // 语音播报开关
+        speakBtn.addEventListener("click", () => {
+            isSpeaking = !isSpeaking;
+            speakBtn.classList.toggle("active", isSpeaking);
+            if (isSpeaking) {
+                speakBtn.title = "关闭语音播报";
+            } else {
+                speechSynthesis.cancel();
+                speakBtn.title = "语音播报";
+            }
+        });
+
+        // 输入框高度自适应
+        userInput.addEventListener("input", () => {
+            userInput.style.height = "auto";
+            userInput.style.height = Math.min(userInput.scrollHeight, 100) + "px";
+        });
+        
+        userInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener("click", sendMessage);
+
+        // 切换人设
+        personaSelect.addEventListener("change", () => {
+            conversationHistory = [];
+            addMessage(`已切换为「${personaSelect.options[personaSelect.selectedIndex].text}」`, "bot");
+        });
+
+        // 切换模型
+        modelSelect.addEventListener("change", () => {
+            conversationHistory = [];
+            addMessage(`已切换模型: ${modelSelect.value}`, "bot");
+        });
+
+        // 清空对话
+        clearBtn.addEventListener("click", () => {
+            if (confirm("清空对话？")) {
+                messagesContainer.innerHTML = `
+                    <div class="message bot">
+                        <div class="msg-avatar">
+                            <img src="{{ url_for('static', filename='avatar.jpg') }}" alt="AI">
+                        </div>
+                        <div class="msg-content">对话已清空</div>
+                    </div>
+                `;
+                conversationHistory = [];
+            }
+        });
+
+        // 导出对话
+        exportBtn.addEventListener("click", () => {
+            let content = "AI 对话记录\n========\n\n";
+            document.querySelectorAll(".message").forEach(msg => {
+                const sender = msg.classList.contains("user") ? "你" : "AI";
+                const text = msg.querySelector(".msg-content").innerText;
+                content += `${sender}: ${text}\n\n`;
+            });
+            const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "对话记录.txt";
+            a.click();
+        });
+    </script>
+</body>
+</html>
