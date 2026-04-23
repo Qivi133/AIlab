@@ -1,0 +1,99 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Agent数字人</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="chat-shell">
+        <header class="topbar">
+          <div class="brand">
+            <div class="avatar-stage" id="avatarStage" aria-label="数字人状态">
+              <div class="avatar-halo" aria-hidden="true"></div>
+              <div class="avatar-card">
+                <img class="avatar-image" src="/resources/avatar.jpg" alt="数字人形象" />
+                <div class="speaking-indicator" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <span class="avatar-dot"></span>
+            </div>
+
+            <div class="brand-copy">
+              <span class="eyebrow">EDGE-TTS · LOCAL OLLAMA</span>
+              <h1>AI Agent数字人</h1>
+               <p class="brand-lead">简洁、稳定、可本地运行的多语言数字人界面。</p>
+              <p class="status-line">
+                <span class="status-text" id="avatarStatus">待机中</span>
+                <span class="separator">·</span>
+                <span id="networkStatus">已连接本地 Ollama</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <label class="toolbar-field compact-field">
+              <span>模型</span>
+              <select id="modelSelect">
+                <option value="qwen3:0.6b">qwen3:0.6b</option>
+                <option value="qwen3:8b">qwen3:8b</option>
+                <option value="deepseek-r1:7b">deepseek-r1:7b</option>
+              </select>
+            </label>
+
+            <label class="toolbar-field compact-field">
+              <span>语言</span>
+              <select id="languageSelect">
+                <option value="zh-CN">普通话</option>
+                <option value="zh-HK">粤语</option>
+                <option value="zh-TW">台湾国语</option>
+                <option value="en-US">美式英语</option>
+                <option value="en-GB">英式英语</option>
+                <option value="en-AU">澳式英语</option>
+                <option value="ja-JP">日语</option>
+                <option value="ko-KR">韩语</option>
+                <option value="fr-FR">法语</option>
+                <option value="de-DE">德语</option>
+                <option value="es-ES">西班牙语</option>
+                <option value="pt-BR">葡萄牙语</option>
+                <option value="it-IT">意大利语</option>
+                <option value="ru-RU">俄语</option>
+              </select>
+            </label>
+
+            <button class="ghost-btn" id="ttsToggle" type="button">语音已开</button>
+            <button class="ghost-btn" id="listenBtn" type="button">语音输入</button>
+            <button class="ghost-btn" id="clearChatBtn" type="button">新对话</button>
+          </div>
+        </header>
+
+        <section class="messages-wrap">
+          <div class="messages" id="messages"></div>
+        </section>
+
+        <form class="composer" id="chatForm">
+          <div class="composer-topline">
+            <span class="hint" id="languageHint">当前语言：普通话</span>
+            <span class="hint" id="voiceHint">当前语音：Microsoft Edge-TTS</span>
+          </div>
+          <textarea
+            id="promptInput"
+            rows="3"
+            placeholder="输入你想说的话，比如：陪我聊聊天。"
+          ></textarea>
+          <div class="composer-actions">
+            <p class="note"> 当前使用 <code>edge-tts</code> 合成语音。</p>
+            <button class="primary-btn" type="submit" id="sendBtn">发送</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
