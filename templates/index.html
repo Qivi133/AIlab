@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学业预警知识问答系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 学业预警知识问答系统</h1>
+            <p class="subtitle">基于LangChain和RAG技术 - 智能解读《本科生学业预警实施办法》</p>
+        </header>
+
+        <div class="chat-container">
+            <div id="chat-history" class="chat-history">
+                <div class="message bot">
+                    <div class="avatar">🤖</div>
+                    <div class="content">
+                        您好！我是学业预警咨询助手。请输入您关于学业预警的问题，例如：
+                        <ul>
+                            <li>红色预警的条件是什么？</li>
+                            <li>一学期挂4门课会收到什么预警？</li>
+                            <li>绩点低于多少会有预警？</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <input type="text" id="question-input" placeholder="请输入学业预警相关问题..." />
+                <button id="send-btn">发送</button>
+            </div>
+
+            <div class="examples">
+                <span>示例问题：</span>
+                <button onclick="askQuestion('红色预警的条件是什么？绩点低于多少算红色预警？')">红色预警条件</button>
+                <button onclick="askQuestion('什么情况下会被黄色预警？')">黄色预警条件</button>
+                <button onclick="askQuestion('如果一学期挂了4门必修课，会收到什么预警？')">挂科预警</button>
+                <button onclick="askQuestion('我有3门选修课没过，会预警吗？')">选修课预警</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <span>思考中...</span>
+        </div>
+    </div>
+
+    <script>
+        const chatHistory = document.getElementById('chat-history');
+        const questionInput = document.getElementById('question-input');
+        const sendBtn = document.getElementById('send-btn');
+        const loading = document.getElementById('loading');
+
+        // 发送问题
+        async function askQuestion(question) {
+            if (!question.trim()) return;
+
+            // 添加用户消息
+            addMessage('user', question);
+            questionInput.value = '';
+
+            // 显示加载
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question: question})
+                });
+
+                const result = await response.json();
+                console.log('API返回:', result);
+
+                // 添加机器人回复
+                addMessage('bot', result.answer || result.message || JSON.stringify(result));
+
+            } catch (error) {
+                console.error('请求出错:', error);
+                addMessage('bot', '抱歉，系统出现了错误，请稍后重试。');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // 添加消息到聊天记录
+        function addMessage(role, content) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role}`;
+
+            const avatar = role === 'user' ? '👤' : '🤖';
+            const displayContent = role === 'bot' ? formatAnswer(content) : content;
+
+            msgDiv.innerHTML = `
+                <div class="avatar">${avatar}</div>
+                <div class="content">${displayContent}</div>
+            `;
+
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // 格式化回答（支持换行）
+        function formatAnswer(text) {
+            return text.replace(/\n/g, '<br>');
+        }
+
+        // 事件绑定
+        sendBtn.addEventListener('click', () => askQuestion(questionInput.value));
+
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                askQuestion(questionInput.value);
+            }
+        });
+    </script>
+</body>
+</html>
